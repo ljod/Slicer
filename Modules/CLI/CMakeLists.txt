@@ -59,6 +59,7 @@ if(Slicer_BUILD_DIFFUSION_SUPPORT)
     TractographyLabelMapSeeding
     FiberBundleLabelSelect
     FiberTractMeasurements
+    FiberTractClean
     )
 endif()
 

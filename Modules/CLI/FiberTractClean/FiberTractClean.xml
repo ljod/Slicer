@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>
+  Diffusion.Tractography
+  </category>
+  <title>
+  FiberTractClean
+  </title>
+  <description>
+Using an input whole brain mask, remove spurious fibers that are very parallel to the surface of the mask (e.g. in skull or CSF). Also remove very short fibers (by default those with fewer than 2 points, which are just an artifact of unsuccessful seeding).
+  </description>
+  <version>0.1.0.$Revision: 1892 $(alpha)</version>
+  <documentation-url>http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.4/Modules/FiberTractClean</documentation-url>
+  <license></license>
+  <contributor> Lauren O'Donnell</contributor>
+  <acknowledgements>BWH, NCIGT/NAC/LMI</acknowledgements>
+
+  <parameters>
+    <label>IO</label>
+    <description>Input/output parameters</description>
+    <image type ="label">
+      <name>InputLabel_A</name>
+      <label>Input Brain Mask</label>
+      <channel>input</channel>
+      <index>0</index>
+      <description>Label map (brain mask) volume</description>
+    </image>
+    <geometry type = "fiberbundle">
+      <name>InputFibers</name>
+      <label>Input Fiber Bundle</label>
+      <channel>input</channel>
+      <index>1</index>
+      <description>Input tractography</description>
+    </geometry>
+    <geometry type = "fiberbundle">
+      <name>OutputFibers</name>
+      <label>Output Fiber Bundle</label>
+      <channel>output</channel>
+      <index>2</index>
+      <description>Cleaned tractography result</description>
+    </geometry>
+  </parameters>
+  
+  <parameters>
+    <label>Advanced</label>
+    <description>Advanced parameters</description>
+    
+    <integer>
+      <name>MinimumNumberOfPoints</name>
+      <label> Minimum fiber length (in points) </label>
+      <default>2</default>
+      <flag>-p</flag>
+      <longflag>--points</longflag>
+      <description><![CDATA[The shortest fiber that will be kept. This is used to remove spurious short fibers. For example, to remove fibers with fewer than 2 points, enter 2.]]></description>
+    </integer>
+
+    <integer>
+      <name>KernelSize</name>
+      <label> Size of brain mask erosion kernel in voxels </label>
+      <default>4</default>
+      <flag>-k</flag>
+      <longflag>--kernelsize</longflag>
+      <description><![CDATA[How much to erode (shrink) the brain mask by to assess what tracts are mostly outside the mask.]]></description>
+    </integer>
+
+    <float>
+      <name>PercentInsideMask</name>
+      <label> Fraction of fiber in mask to keep tract </label>
+      <default>0.9</default>
+      <flag>-f</flag>
+      <longflag>--frac</longflag>
+      <description><![CDATA[A number between 0 and 1. This percentage of the fiber must be inside the eroded mask to keep the fiber. This removes fibers in the skull/CSF. ]]></description>
+    </float>
+
+
+
+  </parameters>  
+</executable>
