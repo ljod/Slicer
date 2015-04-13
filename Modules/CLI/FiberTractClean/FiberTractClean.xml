@@ -72,7 +72,14 @@ Using an input whole brain mask, remove spurious fibers that are very parallel t
       <description><![CDATA[A number between 0 and 1. This percentage of the fiber must be inside the eroded mask to keep the fiber. This removes fibers in the skull/CSF. ]]></description>
     </float>
 
-
+   <boolean>
+      <name>Verbose</name>
+      <label> Verbose output </label>
+      <default>false</default>
+      <flag>-v</flag>
+      <longflag>--verbose</longflag>
+      <description><![CDATA[The shortest fiber that will be kept. This is used to remove spurious short fibers. For example, to remove fibers with fewer than 2 points, enter 2.]]></description>
+    </boolean>
 
   </parameters>  
 </executable>

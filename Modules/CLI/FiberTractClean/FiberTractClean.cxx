@@ -54,8 +54,7 @@ int main( int argc, char * argv[] )
  
   try
   {
-
-
+    
   // PARAMETERS: test they have been typed in okay
   // size (in voxels) of kernel for mask erosion
   int kernelSize = KernelSize;
@@ -63,6 +62,13 @@ int main( int argc, char * argv[] )
   float maskPercent = PercentInsideMask;
   // e.g. 2 means to throw out fibers of length < 2 (single points)
   int pointsThreshold = MinimumNumberOfPoints;
+  bool verbose = Verbose;
+
+  if (maskPercent < 0.0 || maskPercent > 1.0)
+    {
+    std::cerr << "Mask percent is not between 0 and 1: " << maskPercent << std::endl;
+    return EXIT_FAILURE;
+    }
 
   // int excludeOperation = 0; // 0-AND; 1-OR
   // if (NoPassOperation == std::string("OR"))
@@ -103,10 +109,10 @@ int main( int argc, char * argv[] )
   imageCastLabel_A->Update();
 
 
-  vtkNew<vtkNIFTIImageWriter> writertest;
-  writertest->SetInputData( imageCastLabel_A->GetOutput() );
-  writertest->SetFileName( "TEST_CAST.nii" );
-  writertest->Write();
+  // vtkNew<vtkNIFTIImageWriter> writertest;
+  // writertest->SetInputData( imageCastLabel_A->GetOutput() );
+  // writertest->SetFileName( "TEST_CAST.nii" );
+  // writertest->Write();
 
   // threshold so all nonzero values are considered in the mask
   // so below code for erosion can assume 1 is the label of interest
@@ -121,10 +127,9 @@ int main( int argc, char * argv[] )
   thresholdLabel_A->SetInValue(1);
   thresholdLabel_A->Update();
 
-  //vtkNew<vtkNIFTIImageWriter> writertest;
-  writertest->SetInputData( thresholdLabel_A->GetOutput() );
-  writertest->SetFileName( "TEST_THRESHOLD.nii" );
-  writertest->Write();
+  // writertest->SetInputData( thresholdLabel_A->GetOutput() );
+  // writertest->SetFileName( "TEST_THRESHOLD.nii" );
+  // writertest->Write();
 
 #if (VTK_MAJOR_VERSION <= 5)
   erodeLabel_A->SetInput(thresholdLabel_A->GetOutput() );
@@ -137,14 +142,15 @@ int main( int argc, char * argv[] )
   erodeLabel_A->SetKernelSize(kernelSize, kernelSize, kernelSize);
   erodeLabel_A->Update();
 
-  writertest->SetInputData( erodeLabel_A->GetOutput() );
-  writertest->SetFileName( "TEST_ERODE.nii" );
-  writertest->Write();
+  // writertest->SetInputData( erodeLabel_A->GetOutput() );
+  // writertest->SetFileName( "TEST_ERODE.nii" );
+  // writertest->Write();
 
   // Read in fiber bundle input to be selected.
+  // CLIs from within Slicer do all I/O with vtp format, but often the command-line preference is vtk for compatibility with other tools
   std::string extension1 = vtksys::SystemTools::GetFilenameLastExtension(InputFibers.c_str());
   std::string extension = vtksys::SystemTools::LowerCase(extension1);
-  // The above two lines duplicate this function, but we can't include vtkMRMLStorageNode here.
+  // The above two lines duplicate the below function, but we can't include vtkMRMLStorageNode.h here.
   //std::string extension = vtkMRMLStorageNode::GetLowercaseExtensionFromFileName(InputFibers.c_str());
   // This smart pointer should prevent the reader from being deleted
   vtkSmartPointer<vtkPolyData> input;
@@ -221,6 +227,10 @@ int main( int argc, char * argv[] )
   double p[3];
 
   int *labelDims = erodeLabel_A->GetOutput()->GetDimensions();
+
+  int countShortFibers = 0;
+  int countOutsideMask = 0;
+    
   // Check lines
   vtkIdType inCellId;
   for (inCellId=0, inLines->InitTraversal();
@@ -229,7 +239,11 @@ int main( int argc, char * argv[] )
     if (npts <= pointsThreshold)
       {
       addLines.push_back(false);
-      std::cerr << "Less than " << pointsThreshold << " points in line " << inCellId << std::endl;
+      if (verbose)
+	{
+	std::cerr << "Less than " << pointsThreshold << " points in line " << inCellId << std::endl;
+	}
+      countShortFibers++;
       continue; //skip this polyline
       }
     double pIJK[3];
@@ -249,8 +263,14 @@ int main( int argc, char * argv[] )
       if (pt[0] < 0 || pt[1] < 0 || pt[2] < 0 ||
           pt[0] >= labelDims[0] || pt[1] >= labelDims[1] || pt[2] >= labelDims[2])
         {
-        std::cerr << "point #" << j <<" on the line #" << inCellId << " is outside the mask volume" << std::endl;
-        continue;
+	if (verbose)
+	  {
+	    std::cerr << "point #" << j <<" on the line #" << inCellId << " is outside the mask volume" << std::endl;
+	    std::cerr << "IJK point: " << pIJK[0] << " " <<  pIJK[1] << " " <<  pIJK[2]  << std::endl;
+	    std::cerr << "point: " << pt[0] << " " <<  pt[1] << " " <<  pt[2]  << std::endl;
+	    std::cerr << "dims: " << labelDims[0] << " " <<  labelDims[1] << " " <<  labelDims[2] << std::endl;
+	  }
+	continue;
         }
       inPtr = (short *) erodeLabel_A->GetOutput()->GetScalarPointer(pt);
       if (*inPtr == short(1))
@@ -260,8 +280,10 @@ int main( int argc, char * argv[] )
       } //for (j=0; j < npts; j++)
 
     addLine = (float(inMaskSum)/float(npts)) > maskPercent;
-    std::cerr << "the line #" << inCellId << " percent inside the mask: " << (float(inMaskSum)/float(npts)) << " " << addLine << " " << inMaskSum << " " << npts << " " << *inPtr << std::endl;
-
+    if (verbose)
+      {
+      std::cerr << "line #" << inCellId << " is " << (float(inMaskSum)/float(npts)) << " percent inside the mask " << addLine << " " << inMaskSum << " " << npts << " " << *inPtr << std::endl;
+      }
     addLines.push_back(addLine);
     if (addLine)
       {
@@ -269,9 +291,11 @@ int main( int argc, char * argv[] )
       numNewPts += npts;
       numNewCells++;
       }
+    else
+      {
+      countOutsideMask++;
+      }
     } //for (inCellId=0, inLines->InitTraversal();
-
-  std::cerr << "Number of fibers to keep " << numNewCells << " / " << input->GetNumberOfLines() << std::endl;
 
   // Add lines
 
@@ -290,7 +314,7 @@ int main( int argc, char * argv[] )
   // Currently this ignores cell data, which may be added in the future if needed.
   // Check for point data arrays to keep and allocate them.
   int numberArrays = input->GetPointData()->GetNumberOfArrays();
-  std::cerr << "Input data has " << numberArrays << " point data arrays." << std::endl;
+  std::cerr << vtksys::SystemTools::GetFilenameName(OutputFibers.c_str()) << ":: Fibers kept: " << numNewCells << "/" << input->GetNumberOfLines() << ". Short fibers: " << countShortFibers << ". Outside eroded mask: " << countOutsideMask << ". Data arrays: " << numberArrays << std::endl;
 
   for (int arrayIdx = 0; arrayIdx < numberArrays; arrayIdx++)
     {
@@ -301,8 +325,10 @@ int main( int argc, char * argv[] )
       newArray->SetName(oldArray->GetName());
       newArray->Allocate(newArray->GetNumberOfComponents()*numNewPts);
       outFibers->GetPointData()->AddArray(newArray);
-
-      std::cerr << "Output array " << newArray->GetName() << " created with " << newArray->GetNumberOfComponents() << " components." << std::endl;
+      if (verbose)
+	{
+	std::cerr << "Output array " << newArray->GetName() << " created with " << newArray->GetNumberOfComponents() << " components." << std::endl;
+	}
     }
 
   vtkIdType ptId = 0;
@@ -345,14 +371,35 @@ int main( int argc, char * argv[] )
     }
   
   //3. Save the output
-  vtkNew<vtkXMLPolyDataWriter> writer;
-  writer->SetFileName(OutputFibers.c_str());
+  // CLIs from within Slicer do all I/O with vtp format, but often the command-line preference is vtk for compatibility with other tools
+  std::string extension2 = vtksys::SystemTools::GetFilenameLastExtension(OutputFibers.c_str());
+  std::string extension_output = vtksys::SystemTools::LowerCase(extension2);
+  // The above two lines duplicate the below function, but we can't include vtkMRMLStorageNode.h here.
+  //std::string extension = vtkMRMLStorageNode::GetLowercaseExtensionFromFileName(InputFibers.c_str());
+  if (extension_output == std::string(".vtk"))
+    {
+     vtkNew<vtkPolyDataWriter> writer;
+     writer->SetFileName(OutputFibers.c_str());
 #if (VTK_MAJOR_VERSION <= 5)
-  writer->SetInput(outFibers.GetPointer());
+     writer->SetInput(outFibers.GetPointer());
 #else
-  writer->SetInputData(outFibers.GetPointer());
+     writer->SetInputData(outFibers.GetPointer());
 #endif
-  writer->Write();
+     writer->Write();
+    }
+  else if (extension_output == std::string(".vtp"))
+    {
+     vtkNew<vtkXMLPolyDataWriter> writer;
+     writer->SetFileName(OutputFibers.c_str());
+#if (VTK_MAJOR_VERSION <= 5)
+     writer->SetInput(outFibers.GetPointer());
+#else
+     writer->SetInputData(outFibers.GetPointer());
+#endif
+     writer->Write();
+    }
+
+
   }
   catch ( ... )
       {
